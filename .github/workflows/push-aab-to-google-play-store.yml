@@ -144,28 +144,38 @@ jobs:
           out-file-path: release
 
       - if: ${{ inputs.aab-artifact-name != '' && inputs.aab-file-name == '' }}
-        uses: actions/download-artifact@v3
+        name: Download AAB Artifact
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.aab-artifact-name }}
 
       - if: ${{ inputs.aab-artifact-name != '' && inputs.aab-file-name == '' }}
-        uses: actions/download-artifact@v3
+        name: Download Mapping Artifact
+        uses: actions/download-artifact@v4
         with:
           name: mapping
 
       - if: ${{ inputs.merged-native-libs-symbols-artifact-name != '' && inputs.merged-native-libs-symbols-file-name == '' }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
 
+      - name: LS
+        run: ls -la
+
       - if: ${{ inputs.aab-artifact-name == '' && inputs.aab-file-name != '' }}
-        name: Normalize Release File Names
+        name: Normalize Release File Names (AAB and Mapping Latest Release)
         run: |
           mv ./release/${{ inputs.aab-file-name }}-${{ steps.get-latest-release.outputs.release }}.aab ./app-release.aab
           mv ./release/mapping.txt mapping.txt
 
+      - if: ${{ inputs.aab-artifact-name != '' && inputs.aab-file-name == '' }}
+        name: Normalize Release File Names (AAB and Mapping Artifact)
+        run: |
+          mv ./app-prod-release.aab ./app-release.aab
+
       - if: ${{ inputs.merged-native-libs-symbols-artifact-name == '' && inputs.merged-native-libs-symbols-file-name != '' }}
-        name: Normalize Release File Names
+        name: Normalize Release File Names (Merged Native Libs Artifact)
         run: |
           mv ./release/${{ inputs.merged-native-libs-symbols-file-name }}.zip ./symbols.zip
 

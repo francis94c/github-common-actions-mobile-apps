@@ -14,6 +14,10 @@ on:
       environment:
         description: Environment
         type: environment
+      flavor:
+        description: Flavor. e.g. dev, prod
+        required: false
+        type: string
       tester-groups:
         description: Comma separated firebase tester groups.
         type: string
@@ -30,6 +34,10 @@ on:
         type: string
       environment:
         description: Environment
+        type: string
+      flavor:
+        description: Flavor. e.g. dev, prod
+        required: false
         type: string
       tester-groups:
         description: Comma separated firebase tester groups.
@@ -52,7 +60,7 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
-      - uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.aab-artifact-name }}
 
@@ -63,24 +71,32 @@ jobs:
           files: './RELEASE_NOTES.txt'
           fail: false
 
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
+
+      - name: Save Service Account File
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-service-account.json
+
+      - name: Set up Firebase authentication
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/firebase-service-account.json" >> $GITHUB_ENV
+
       - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
         name: Push AAB to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1.5.0
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT }}
-          file: ./app-release.aab
-          groups: ${{ inputs.tester-groups }}
-          releaseNotesFile: ./RELEASE_NOTES.txt
+        run: |
+          firebase appdistribution:distribute ./app${{ inputs.flavor != '' && format('-{0}', inputs.flavor) || '' }}-release.aab \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups ${{ inputs.tester-groups }} \
+            --release-notes-file ./RELEASE_NOTES.txt
 
       - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
         name: Push AAB to Firebase App Distribution
-        uses: wzieba/Firebase-Distribution-Github-Action@v1.5.0
-        with:
-          appId: ${{ secrets.FIREBASE_APP_ID }}
-          serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT }}
-          file: ${{ inputs.aab-artifact-name }}/app-release.aab
-          groups: ${{ inputs.tester-groups }}
+        run: |
+          firebase appdistribution:distribute ./app${{ inputs.flavor != '' && format('-{0}', inputs.flavor) || '' }}-release.aab \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups ${{ inputs.tester-groups }}
 
       - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
         name: Read Release Notes

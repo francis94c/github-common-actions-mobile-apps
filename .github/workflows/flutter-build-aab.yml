@@ -66,7 +66,7 @@ on:
       java-version:
         description: Java Version
         required: false
-        default: '17.x'
+        default: '12.x'
         type: string
     secrets:
       KEYSTORE_JKS:
@@ -142,7 +142,23 @@ jobs:
         name: Build Flavored AAB
         run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64 --release --flavor ${{ inputs.flavor }} -t lib/main_${{ inputs.flavor }}.dart ${{ inputs.obfuscate && format('--obfuscate --split-debug-info=/home/runner/work/{0}/{0}/build/app/outputs/symbols', github.event.repository.name) || '' }} ${{ secrets.DART_DEFINE_FILE && '--dart-define-from-file dart-define.json' }}
 
+      - name: UC First Flavor
+        if: "${{ inputs.flavor != '' }}"
+        id: ucfirst-flavor
+        uses: actions/github-script@v7.0.1
+        with:
+          result-encoding: string
+          script: |
+            let string = '${{ inputs.flavor }}'
+            return string.charAt(0).toUpperCase() + string.slice(1)
+
       - name: Zip Merged Native Libs Symbols
+        if: "${{ inputs.flavor != '' }}"
+        run: |
+          cd build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib && zip -r symbols.zip *
+
+      - name: Zip Merged Native Libs Symbols
+        if: "${{ inputs.flavor == '' }}"
         run: |
           cd build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib && zip -r symbols.zip *
 
@@ -162,9 +178,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.aab-artifact-name }}-${{ inputs.flavor }}
-          path: ./build/app/outputs/flutter-apk/app-${{ inputs.flavor }}-release.aab
+          path: ./build/app/outputs/bundle/${{ inputs.flavor }}Release/app-${{ inputs.flavor }}-release.aab
 
       - name: Upload Merged Native Symbols Artifact
+        if: "${{ inputs.flavor != '' }}"
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
+          path: ./build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib/symbols.zip
+
+      - name: Upload Merged Native Symbols Artifact
+        if: "${{ inputs.flavor == '' }}"
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
@@ -177,10 +201,18 @@ jobs:
           path: ./build/app/outputs/symbols/symbols.zip
 
       - name: Upload Mapping Artifact
+        if: "${{ inputs.flavor == '' }}"
         uses: actions/upload-artifact@v4
         with:
           name: mapping
           path: ./build/app/outputs/mapping/release/mapping.txt
+
+      - name: Upload Mapping Artifact
+        if: "${{ inputs.flavor != '' }}"
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping
+          path: ./build/app/outputs/mapping/${{ inputs.flavor }}Release/mapping.txt
 
       - name: Upload BOM Artifact
         uses: actions/upload-artifact@v4
