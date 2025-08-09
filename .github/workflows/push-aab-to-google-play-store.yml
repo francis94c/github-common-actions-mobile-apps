@@ -3,10 +3,6 @@ name: push-aab-to-google-play-store
 on:
   workflow_dispatch:
     inputs:
-      aab-file-name:
-        description: AAB File Name.
-        required: false
-        type: string
       aab-artifact-name:
         description: AAB Artifact Name.
         required: false
@@ -25,10 +21,6 @@ on:
         type: string
       merged-native-libs-symbols-artifact-name:
         description: Merged Native Libs Symbols Artifact Name
-        required: false
-        type: string
-      merged-native-libs-symbols-file-name:
-        description: Merged Native Libs Symbols File Name
         required: false
         type: string
       environment:
@@ -40,12 +32,12 @@ on:
         required: false
         default: ubuntu-latest
         type: string
-  workflow_call:
-    inputs:
-      aab-file-name:
-        description: AAB File Name.
+      flavor:
+        description: Flavor. e.g. dev, prod
         required: false
         type: string
+  workflow_call:
+    inputs:
       aab-artifact-name:
         description: AAB Artifact Name.
         required: false
@@ -66,10 +58,6 @@ on:
         description: Merged Native Libs Symbols Artifact Name
         required: false
         type: string
-      merged-native-libs-symbols-file-name:
-        description: Merged Native Libs Symbols File Name
-        required: false
-        type: string
       environment:
         description: Environment.
         required: false
@@ -78,6 +66,10 @@ on:
         description: Runner.
         required: false
         default: ubuntu-latest
+        type: string
+      flavor:
+        description: Flavor. e.g. dev, prod
+        required: false
         type: string
     secrets:
       GITHUB_ENV_TOKEN:
@@ -95,89 +87,29 @@ jobs:
     environment: ${{ inputs.environment }}
     runs-on: ${{ inputs.runner }}
     steps:
-      - name: Validate AAB Inputs
-        run: |
-          if [ -z "${{ inputs.aab-file-name }}" ] && [ -z "${{ inputs.aab-artifact-name }}" ]; then
-            echo "Either aab-file-name or aab-artifact-name is required"
-            exit 1
-          fi
-
-      - name: Validate Merged Native Libs Inputs
-        run: |
-          if [ -z "${{ inputs.merged-native-libs-symbols-file-name }}" ] && [ -z "${{ inputs.merged-native-libs-symbols-artifact-name }}" ]; then
-            echo "Either merged-native-libs-symbols-file-name or merged-native-libs-symbols-artifact-name is required"
-            exit 1
-          fi
-
       - uses: actions/checkout@v1
 
-      - if: ${{ inputs.aab-artifact-name == '' && inputs.aab-file-name != '' }}
-        name: Get latest release
-        uses: pozetroninc/github-action-get-latest-release@v0.7.0
-        id: get-latest-release
-        with:
-          repository: ${{ github.repository }}
-          token: ${{ secrets.GITHUB_ENV_TOKEN }}
-
-      - if: ${{ inputs.aab-artifact-name == '' && inputs.aab-file-name != '' }}
-        name: Download AAB File from Latest Release
-        uses: robinraju/release-downloader@v1.8
-        with:
-          tag: ${{ steps.get-latest-release.outputs.release }}
-          fileName: '${{ inputs.aab-file-name }}-${{ steps.get-latest-release.outputs.release }}.aab'
-          out-file-path: release
-
-      - if: ${{ inputs.aab-artifact-name == '' && inputs.aab-file-name != '' }}
-        name: Download Mapping File from Latest Release
-        uses: robinraju/release-downloader@v1.8
-        with:
-          tag: ${{ steps.get-latest-release.outputs.release }}
-          fileName: mapping.txt
-          out-file-path: release
-
-      - if: ${{ inputs.merged-native-libs-symbols-artifact-name == '' && inputs.merged-native-libs-symbols-file-name != '' }}
-        name: Download Merged Native Libs from Latest Release
-        uses: robinraju/release-downloader@v1.8
-        with:
-          tag: ${{ steps.get-latest-release.outputs.release }}
-          fileName: ${{ inputs.merged-native-libs-symbols-file-name }}.zip
-          out-file-path: release
-
-      - if: ${{ inputs.aab-artifact-name != '' && inputs.aab-file-name == '' }}
-        name: Download AAB Artifact
+      - name: Download AAB Artifact
         uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.aab-artifact-name }}
 
-      - if: ${{ inputs.aab-artifact-name != '' && inputs.aab-file-name == '' }}
-        name: Download Mapping Artifact
+      - name: Download Mapping Artifact
         uses: actions/download-artifact@v4
         with:
           name: mapping
 
-      - if: ${{ inputs.merged-native-libs-symbols-artifact-name != '' && inputs.merged-native-libs-symbols-file-name == '' }}
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
 
       - name: LS
         run: ls -la
 
-      - if: ${{ inputs.aab-artifact-name == '' && inputs.aab-file-name != '' }}
-        name: Normalize Release File Names (AAB and Mapping Latest Release)
+      - if: ${{ inputs.flavor != '' }}
+        name: Normalize Artifact File Names (AAB Artifact)
         run: |
-          mv ./release/${{ inputs.aab-file-name }}-${{ steps.get-latest-release.outputs.release }}.aab ./app-release.aab
-          mv ./release/mapping.txt mapping.txt
-
-      - if: ${{ inputs.aab-artifact-name != '' && inputs.aab-file-name == '' }}
-        name: Normalize Release File Names (AAB and Mapping Artifact)
-        run: |
-          mv ./app-prod-release.aab ./app-release.aab
-
-      - if: ${{ inputs.merged-native-libs-symbols-artifact-name == '' && inputs.merged-native-libs-symbols-file-name != '' }}
-        name: Normalize Release File Names (Merged Native Libs Artifact)
-        run: |
-          mv ./release/${{ inputs.merged-native-libs-symbols-file-name }}.zip ./symbols.zip
+          mv ./app-${{ inputs.flavor }}-release.aab ./app-release.aab
 
       - name: Extract Flutter Debug Symbols
         run: unzip -q ./symbols.zip -d symbols
