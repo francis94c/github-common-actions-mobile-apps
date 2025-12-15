@@ -14,12 +14,8 @@ on:
         type: environment
       ipa-artifact-name:
         description: IPA artifact name. e.g. ios.ipa
-        required: false
+        required: true
         default: ios.ipa
-        type: string
-      ipa-file-name:
-        description: IPA file name. e.g. ios.ipa
-        required: false
         type: string
       fastlane-lane:
         description: Fastlane lane
@@ -36,6 +32,10 @@ on:
         description: Final IPA file name.
         type: string
         required: true
+      bundle-id:
+        description: App Bundle ID
+        type: string
+        required: false
   workflow_call:
     inputs:
       runner:
@@ -52,10 +52,6 @@ on:
         required: false
         default: ios.ipa
         type: string
-      ipa-file-name:
-        description: IPA file name. e.g. ios.ipa
-        required: false
-        type: string
       app-name:
         description: App Name
         type: string
@@ -72,6 +68,10 @@ on:
         description: Final IPA file name.
         type: string
         required: true
+      bundle-id:
+        description: App Bundle ID
+        type: string
+        required: false
     secrets:
       APPSTORE_CONNECT_JSON_BASE64:
         description: Fastlane app store connect credential json
@@ -86,49 +86,24 @@ jobs:
     runs-on: ${{ inputs.runner }}
     environment: ${{ inputs.environment }}
     steps:
-      - name: Validate AAB Inputs
-        run: |
-          if [ -z "${{ inputs.ipa-file-name }}" ] && [ -z "${{ inputs.ipa-artifact-name }}" ]; then
-            echo "Either ipa-file-name or ipa-artifact-name is required"
-            exit 1
-          fi
-
       - name: Checkout
         uses: actions/checkout@v2
 
-      - if: ${{ inputs.ipa-artifact-name != '' && inputs.ipa-file-name == '' }}
-        uses: actions/download-artifact@v3
+      - uses: actions/download-artifact@v4
         with:
           name: ${{ inputs.ipa-artifact-name }}
 
-      - if: ${{ inputs.ipa-artifact-name != '' && inputs.ipa-file-name == '' }}
-        name: Move IPA Artifact
+      - name: Move IPA Artifact
         run: |
           mv ${{ inputs.app-name }}.ipa ${{ inputs.final-ipa-file-name }}.ipa
-
-      - if: ${{ inputs.ipa-file-name != '' && inputs.ipa-artifact-name == '' }}
-        name: Get Latest Release
-        uses: pozetroninc/github-action-get-latest-release@v0.7.0
-        id: get-latest-release
-        with:
-          repository: ${{ github.repository }}
-          token: ${{ secrets.GITHUB_ENV_TOKEN }}
-
-      - if: ${{ inputs.ipa-file-name != '' && inputs.ipa-artifact-name == '' }}
-        name: Download IPA File from Latest Release
-        uses: robinraju/release-downloader@v1.8
-        with:
-          tag: ${{ steps.get-latest-release.outputs.release }}
-          fileName: '${{ inputs.ipa-file-name }}-${{ steps.get-latest-release.outputs.release }}.ipa'
-          out-file-path: release
-
-      - if: ${{ inputs.ipa-file-name != '' && inputs.ipa-artifact-name == '' }}
-        name: Move IPA Release
-        run: mv ./release/${{ inputs.ipa-file-name }}.ipa ${{ inputs.final-ipa-file-name }}.ipa
 
       - name: Prepare App Store Connect Credential
         run: |
           echo "${{ secrets.APPSTORE_CONNECT_JSON_BASE64 }}" | base64 --decode > ios/fastlane/api.json
+
+      - name: Set BUNDLE_ID environmental variable
+        if: ${{ inputs.bundle-id != '' }}
+        run: echo "BUNDLE_ID=${{ inputs.bundle-id }}" >> $GITHUB_ENV
 
       - name: Upload IPA to TestFlight
         run: |

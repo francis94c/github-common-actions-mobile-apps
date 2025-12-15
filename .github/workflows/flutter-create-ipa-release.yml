@@ -93,7 +93,10 @@ jobs:
           prerelease: false
 
       - name: Download Artifacts
-        uses: actions/download-artifact@v2
+        uses: actions/download-artifact@v4
+
+      - name: LS
+        run: ls -R
 
       - if: ${{ inputs.flavor != '' }}
         name: Upload Release Asset - Flavored IPA
@@ -102,7 +105,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_ENV_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ inputs.ipa-artifact-name }}-${{ inputs.flavor }}/${{ inputs.ipa-artifact-name }}-${{ inputs.flavor }}.ipa
+          asset_path: ${{ inputs.ipa-artifact-name }}-${{ inputs.flavor }}/${{ inputs.app-name }}.ipa
           asset_name: ${{ inputs.ipa-artifact-name }}${{ format('-{0}{1}', inputs.flavor, inputs.flavor != '' && '-' || '' ) }}v${{ inputs.version-code }}.ipa
           asset_content_type: application/octet-stream
 
@@ -115,20 +118,6 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ inputs.ipa-artifact-name }}/${{ inputs.app-name }}.ipa
           asset_name: ${{ inputs.ipa-artifact-name }}v${{ inputs.version-code }}.ipa
-          asset_content_type: application/octet-stream
-
-      - name: Zip XCArchive
-        run: zip -r Runner.xcarchive.zip Runner
-
-      - if: ${{ inputs.runner-archive-artifact-name != '' }}
-        name: Upload Release Asset - Runner Archive
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_ENV_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: Runner.xcarchive.zip
-          asset_name: Runner.xcarchive.zip
           asset_content_type: application/octet-stream
 
       - name: Upload Release Asset - BOM

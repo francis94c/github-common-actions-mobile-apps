@@ -57,10 +57,17 @@ on:
 jobs:
   push-to-firebase-app-distribution:
     runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v1
 
       - uses: actions/download-artifact@v4
+        if: ${{ inputs.flavor == '' }}
+        with:
+          name: ${{ inputs.aab-artifact-name }}
+
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.flavor != '' }}
         with:
           name: ${{ inputs.aab-artifact-name }}
 
@@ -80,44 +87,48 @@ jobs:
         run: |
           echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-service-account.json
 
-      - name: Set up Firebase authentication
+      - name: Set up Firebase Authentication
         run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/firebase-service-account.json" >> $GITHUB_ENV
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
-        name: Push AAB to Firebase App Distribution
+      - if: ${{ steps.release_notes_exists.outputs.files_exists == 'true' }}
+        name: Push AAB to Firebase App Distribution 
         run: |
-          firebase appdistribution:distribute ./app${{ inputs.flavor != '' && format('-{0}', inputs.flavor) || '' }}-release.aab \
+          firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.aab \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
             --groups ${{ inputs.tester-groups }} \
             --release-notes-file ./RELEASE_NOTES.txt
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+      - if: ${{ steps.release_notes_exists.outputs.files_exists == 'false' }}
         name: Push AAB to Firebase App Distribution
         run: |
-          firebase appdistribution:distribute ./app${{ inputs.flavor != '' && format('-{0}', inputs.flavor) || '' }}-release.aab \
+          firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.aab \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
             --groups ${{ inputs.tester-groups }}
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+      - if: ${{ steps.release_notes_exists.outputs.files_exists == 'true' }}
         name: Read Release Notes
         id: read-file
         uses: juliangruber/read-file-action@v1.1.6
         with:
           path: ./RELEASE_NOTES.txt
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+      - if: ${{ steps.release_notes_exists.outputs.files_exists == 'true' }}
         name: Slack Notify
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
           SLACK_MESSAGE: "AAB Build for `${{ inputs.aab-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}\nRelease Notes: ```${{ steps.read-file.outputs.content }}```"
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+      - if: ${{ steps.release_notes_exists.outputs.files_exists == 'false' }}
         name: Slack Notify
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
           SLACK_MESSAGE: "AAB Build for `${{ inputs.aab-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}"
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - if: ${{ always() }}
+        name: Remove Service Account File
+        run: rm firebase-service-account.json
 
       - if: ${{ failure() }}
         name: The job has failed

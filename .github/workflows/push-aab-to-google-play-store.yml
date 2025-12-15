@@ -23,6 +23,10 @@ on:
         description: Merged Native Libs Symbols Artifact Name
         required: false
         type: string
+      merged-native-libs-symbols-file-name:
+        description: Merged Native Libs Symbols File Name
+        required: false
+        type: string
       environment:
         description: Environment.
         required: false
@@ -31,10 +35,6 @@ on:
         description: Runner.
         required: false
         default: ubuntu-latest
-        type: string
-      flavor:
-        description: Flavor. e.g. dev, prod
-        required: false
         type: string
   workflow_call:
     inputs:
@@ -66,10 +66,6 @@ on:
         description: Runner.
         required: false
         default: ubuntu-latest
-        type: string
-      flavor:
-        description: Flavor. e.g. dev, prod
-        required: false
         type: string
     secrets:
       GITHUB_ENV_TOKEN:
@@ -106,26 +102,43 @@ jobs:
       - name: LS
         run: ls -la
 
-      - if: ${{ inputs.flavor != '' }}
-        name: Normalize Artifact File Names (AAB Artifact)
+      - name: Normalize Release File Names (AAB and Mapping Artifact)
         run: |
-          mv ./app-${{ inputs.flavor }}-release.aab ./app-release.aab
+          mv ./app-prod-release.aab ./app-release.aab
 
       - name: Extract Flutter Debug Symbols
         run: unzip -q ./symbols.zip -d symbols
 
-      - name: 'Check Release Notes Existence'
+      - name: "Check Release Notes Existence"
         id: release_notes_exists
         uses: andstor/file-existence-action@v2
         with:
-          files: './RELEASE_NOTES.txt'
+          files: "./RELEASE_NOTES.txt"
           fail: false
 
       - name: Create what's new directory and copy Release Notes
         run: mkdir whatsnew && cp ./RELEASE_NOTES.txt ./whatsnew/whatsnew-en-US
 
-      - name: Upload to Google Play
+      - name: Upload to Google Play (Set Changes Not Sent For Review)
         uses: r0adkll/upload-google-play@v1
+        continue-on-error: true
+        id: upload-to-google-play-set-changes-not-sent-for-review
+        with:
+          serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CONTENT }}
+          packageName: ${{ inputs.app-id  }}
+          releaseFiles: app-release.aab
+          track: ${{ inputs.track }}
+          status: ${{ inputs.status }}
+          inAppUpdatePriority: 2
+          whatsNewDirectory: whatsnew
+          mappingFile: mapping.txt
+          debugSymbols: symbols
+          changesNotSentForReview: true
+
+      - name: Upload to Google Play (Not Set Changes Not Sent For Review)
+        uses: r0adkll/upload-google-play@v1
+        continue-on-error: true
+        if: ${{ steps.upload-to-google-play-set-changes-not-sent-for-review.outcome == 'failure' }}
         with:
           serviceAccountJsonPlainText: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON_CONTENT }}
           packageName: ${{ inputs.app-id  }}
@@ -141,5 +154,5 @@ jobs:
         name: The job has failed
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
-          SLACK_MESSAGE: 'Push AAB :android: to Google Play for `${{ github.event.repository.name }}` failed :x:.'
+          SLACK_MESSAGE: "Push AAB :android: to Google Play for `${{ github.event.repository.name }}` failed :x:."
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}

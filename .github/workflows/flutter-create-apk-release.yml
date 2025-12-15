@@ -68,6 +68,9 @@ jobs:
       - name: Download Artifacts
         uses: actions/download-artifact@v4
 
+      - name: LS
+        run: ls -R
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -85,7 +88,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_ENV_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ${{ inputs.apk-artifact-name }}/app-release.apk
+          asset_path: ${{ inputs.apk-artifact-name }}-${{ inputs.flavor }}/app-${{ inputs.flavor }}-release.apk
           asset_name: ${{ inputs.apk-artifact-name }}${{ format('-{0}{1}', inputs.flavor, inputs.flavor != '' && '-' || '' ) }}v${{ inputs.version-code }}.apk
           asset_content_type: application/vnd.android.package-archive
 

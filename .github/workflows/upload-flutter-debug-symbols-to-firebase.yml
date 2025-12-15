@@ -40,7 +40,12 @@ jobs:
       - name: Extract Flutter Debug Symbols
         run: unzip -q ./symbols.zip -d symbols
 
+      - name: Prepare Google Service Account JSON File
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT }}' >> firebase-service-account.json
+
       - name: Upload Flutter Debug Symbols to Firebase
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: firebase-service-account.json
         run: firebase crashlytics:symbols:upload --app=${{ secrets.FIREBASE_APP_ID }} ./symbols
 
       - if: ${{ failure() }}

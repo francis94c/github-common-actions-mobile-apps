@@ -95,6 +95,14 @@ jobs:
     steps:
       - uses: actions/checkout@v1
 
+      - name: Free up disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/hostedtoolcache
+          sudo rm -rf /usr/local/share/boost
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          df -H
+
       - name: Setup Java
         uses: actions/setup-java@v1
         with:
@@ -104,6 +112,12 @@ jobs:
         uses: subosito/flutter-action@v1
         with:
           channel: 'stable'
+
+      - name: Clean Flutter (Free up disk space)
+        run: flutter clean
+
+      - name: Clean Gradle cache
+        run: rm -rf ~/.gradle/caches/
 
       - name: Install Dependencies
         run: flutter pub get
@@ -127,23 +141,22 @@ jobs:
       - name: Prepare ENV File
         run: echo "${{ secrets.APP_ENV }}" | base64 --decode > .env
 
-      - if: "${{ inputs.version-code != '' }}"
+      - if: ${{ inputs.version-code != '' }}
         name: Bump Version Codes
         run: "sed -i 's/version: ${{ steps.read-version.outputs.version-number }}/version: ${{ inputs.version-code }}/g' pubspec.yaml"
 
       - name: Prepare Google Services JSON
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
 
-      - if: "${{ inputs.flavor == '' }}"
+      - if: ${{ inputs.flavor == '' }}
         name: Build Normal AAB
         run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64 --release ${{ inputs.obfuscate && format('--obfuscate --split-debug-info=/home/runner/work/{0}/{0}/build/app/outputs/symbols', github.event.repository.name) || '' }} ${{ secrets.DART_DEFINE_FILE && '--dart-define-from-file dart-define.json' }}
 
-      - if: "${{ inputs.flavor != '' }}"
+      - if: ${{ inputs.flavor != '' }}
         name: Build Flavored AAB
         run: flutter build appbundle --target-platform android-arm,android-arm64,android-x64 --release --flavor ${{ inputs.flavor }} -t lib/main_${{ inputs.flavor }}.dart ${{ inputs.obfuscate && format('--obfuscate --split-debug-info=/home/runner/work/{0}/{0}/build/app/outputs/symbols', github.event.repository.name) || '' }} ${{ secrets.DART_DEFINE_FILE && '--dart-define-from-file dart-define.json' }}
 
       - name: UC First Flavor
-        if: "${{ inputs.flavor != '' }}"
         id: ucfirst-flavor
         uses: actions/github-script@v7.0.1
         with:
@@ -153,27 +166,27 @@ jobs:
             return string.charAt(0).toUpperCase() + string.slice(1)
 
       - name: Zip Merged Native Libs Symbols
-        if: "${{ inputs.flavor != '' }}"
+        if: ${{ inputs.flavor != '' }}
         run: |
           cd build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib && zip -r symbols.zip *
 
       - name: Zip Merged Native Libs Symbols
-        if: "${{ inputs.flavor == '' }}"
+        if: ${{ inputs.flavor == '' }}
         run: |
-          cd build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib && zip -r symbols.zip *
+          cd build/app/intermediates/merged_native_libs/release/out/lib && zip -r symbols.zip *
 
       - name: Zip Flutter Build Symbols
         run: |
           cd build/app/outputs/symbols && zip -r symbols.zip *
 
-      - if: "${{ inputs.flavor == '' }}"
+      - if: ${{ inputs.flavor == '' }}
         name: Upload Normal AAB Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.aab-artifact-name }}
           path: ./build/app/outputs/bundle/release/app-release.aab
 
-      - if: "${{ inputs.flavor != '' }}"
+      - if: ${{ inputs.flavor != '' }}
         name: Upload Flavored AAB Artifact
         uses: actions/upload-artifact@v4
         with:
@@ -181,18 +194,18 @@ jobs:
           path: ./build/app/outputs/bundle/${{ inputs.flavor }}Release/app-${{ inputs.flavor }}-release.aab
 
       - name: Upload Merged Native Symbols Artifact
-        if: "${{ inputs.flavor != '' }}"
+        if: ${{ inputs.flavor != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
           path: ./build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib/symbols.zip
 
       - name: Upload Merged Native Symbols Artifact
-        if: "${{ inputs.flavor == '' }}"
+        if: ${{ inputs.flavor == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
-          path: ./build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib/symbols.zip
+          path: ./build/app/intermediates/merged_native_libs/release/out/lib/symbols.zip
 
       - name: Upload Flutter Build Symbols Artifact
         uses: actions/upload-artifact@v4
@@ -201,14 +214,14 @@ jobs:
           path: ./build/app/outputs/symbols/symbols.zip
 
       - name: Upload Mapping Artifact
-        if: "${{ inputs.flavor == '' }}"
+        if: ${{ inputs.flavor == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: mapping
           path: ./build/app/outputs/mapping/release/mapping.txt
 
       - name: Upload Mapping Artifact
-        if: "${{ inputs.flavor != '' }}"
+        if: ${{ inputs.flavor != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: mapping

@@ -30,6 +30,11 @@ on:
         description: Flutter Build Symbols Artifact Name
         required: true
         type: string
+      java-version:
+        description: Java Version
+        required: false
+        default: '12.x'
+        type: string
   workflow_call:
     inputs:
       flavor:
@@ -57,6 +62,11 @@ on:
       flutter-build-symbols-artifact-name:
         description: Flutter Build Symbols Artifact Name
         required: true
+        type: string
+      java-version:
+        description: Java Version
+        required: false
+        default: '12.x'
         type: string
     secrets:
       KEYSTORE_JKS:
@@ -88,15 +98,16 @@ jobs:
       - name: Setup Java
         uses: actions/setup-java@v1
         with:
-          java-version: '12.x'
+          java-version: ${{ inputs.java-version }}
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v1
         with:
           channel: 'stable'
+          flutter-version: '3.29.0'
 
       - name: Install Dependencies
-        run: flutter pub get
+        run: flutter pub upgrade && flutter pub get
 
       - name: Run Code Generators
         run: flutter pub run build_runner build --delete-conflicting-outputs
@@ -117,22 +128,37 @@ jobs:
       - name: Prepare ENV File
         run: echo "${{ secrets.APP_ENV }}" | base64 --decode > .env
 
-      - if: "${{ inputs.version-code != '' }}"
+      - if: ${{ inputs.version-code != '' }}
         name: Bump Version Codes
         run: "sed -i 's/version: ${{ steps.read-version.outputs.version-number }}/version: ${{ inputs.version-code }}/g' pubspec.yaml"
 
       - name: Prepare Google Services JSON
         run: echo "${{ secrets.GOOGLE_SERVICES_JSON }}" | base64 --decode > android/app/google-services.json
 
-      - if: "${{ inputs.flavor == '' }}"
+      - if: ${{ inputs.flavor == '' }}
         name: Build Normal APK
         run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --release ${{ inputs.obfuscate && format('--obfuscate --split-debug-info=/home/runner/work/{0}/{0}/build/app/outputs/symbols', github.event.repository.name) || '' }} ${{ secrets.DART_DEFINE_FILE && '--dart-define-from-file dart-define.json' }}
 
-      - if: "${{ inputs.flavor != '' }}"
+      - if: ${{ inputs.flavor != '' }}
         name: Build Flavored APK
         run: flutter build apk --target-platform android-arm,android-arm64,android-x64 --release --flavor ${{ inputs.flavor }} -t lib/main_${{ inputs.flavor }}.dart ${{ inputs.obfuscate && format('--obfuscate --split-debug-info=/home/runner/work/{0}/{0}/build/app/outputs/symbols', github.event.repository.name) || '' }} ${{ secrets.DART_DEFINE_FILE && '--dart-define-from-file dart-define.json' }}
 
+      - name: GitHub Script
+        id: ucfirst-flavor
+        uses: actions/github-script@v7.0.1
+        with:
+          result-encoding: string
+          script: |
+            let string = '${{ inputs.flavor }}'
+            return string.charAt(0).toUpperCase() + string.slice(1)
+
       - name: Zip Merged Native Libs Symbols
+        if: ${{ inputs.flavor != '' }}
+        run: |
+          cd build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib && zip -r symbols.zip *
+
+      - name: Zip Merged Native Libs Symbols
+        if: ${{ inputs.flavor == '' }}
         run: |
           cd build/app/intermediates/merged_native_libs/release/out/lib && zip -r symbols.zip *
 
@@ -140,40 +166,56 @@ jobs:
         run: |
           cd build/app/outputs/symbols && zip -r symbols.zip *
 
-      - if: "${{ inputs.flavor == '' }}"
+      - if: ${{ inputs.flavor == '' }}
         name: Upload Normal APK Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.apk-artifact-name }}
-          path: ./build/app/outputs/bundle/release/app-release.apk
+          path: ./build/app/outputs/flutter-apk/release/app-release.apk
 
-      - if: "${{ inputs.flavor != '' }}"
+      - if: ${{ inputs.flavor != '' }}
         name: Upload Flavored APK Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.apk-artifact-name }}-${{ inputs.flavor }}
           path: ./build/app/outputs/flutter-apk/app-${{ inputs.flavor }}-release.apk
 
       - name: Upload Merged Native Symbols Artifact
-        uses: actions/upload-artifact@v3
+        if: ${{ inputs.flavor != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
+          path: ./build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib/symbols.zip
+
+      - name: Upload Merged Native Symbols Artifact
+        if: ${{ inputs.flavor == '' }}
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
           path: ./build/app/intermediates/merged_native_libs/release/out/lib/symbols.zip
 
       - name: Upload Flutter Build Symbols Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.flutter-build-symbols-artifact-name }}
           path: ./build/app/outputs/symbols/symbols.zip
 
       - name: Upload Mapping Artifact
-        uses: actions/upload-artifact@v3
+        if: ${{ inputs.flavor == '' }}
+        uses: actions/upload-artifact@v4
         with:
           name: mapping
           path: ./build/app/outputs/mapping/release/mapping.txt
 
+      - name: Upload Mapping Artifact
+        if: ${{ inputs.flavor != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: mapping
+          path: ./build/app/outputs/mapping/${{ inputs.flavor }}Release/mapping.txt
+
       - name: Upload BOM Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: bom
           path: ./pubspec.lock
