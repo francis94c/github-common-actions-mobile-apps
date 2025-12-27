@@ -77,6 +77,7 @@ platform :ios do
     ipa_name = options[:ipa_name] || "Runner-%{flavor}" % {flavor: flavor}
     
     output_name = "%{ipa_name}.ipa" % {ipa_name: ipa_name}
+    
     if options[:output_name] != nil
       output_name = options[:output_name]
     end
