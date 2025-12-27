@@ -1,0 +1,100 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  desc "Push a new beta build to TestFlight"
+  lane :beta do |options|
+    skip_submission = options[:skip_submission] == "true"
+    skip_waiting_for_build_processing = options[:skip_waiting_for_build_processing] == "true"
+    ipa_path = options[:ipa_path] || "../build/ios/ipa/Runner.ipa"
+    if options[:ipa_path] != nil
+      ipa_path = options[:ipa_path]
+    end
+    upload_to_testflight(
+      api_key_path: "fastlane/api.json",
+      ipa: ipa_path,
+      skip_submission: skip_submission,
+      skip_waiting_for_build_processing: skip_waiting_for_build_processing
+    )
+  end
+
+  desc "Install development certificates"
+  lane :certificates do
+    match(type: "development")
+  end
+
+  desc "Install production certificates, provisioning profiles, and build app"
+  lane :export_and_sign do |options|
+    setup_ci
+
+    flavor = "prod"
+    if options[:flavor] != flavor
+      flavor = options[:flavor]
+    end
+
+    bundleId = ENV["BUNDLE_ID"] || "com.exchanger101.app"
+
+    match(
+      type: "appstore",
+      readonly: is_ci,
+      git_private_key: "fastlane/cert_repo_ssh_key",
+      api_key_path: "fastlane/api.json"
+    )
+
+    update_code_signing_settings(
+      use_automatic_signing: false,
+      code_sign_identity: "iPhone Distribution",
+      team_id: ENV["sigh_%{bundleId}_appstore_team-id" % {bundleId: bundleId}],
+      entitlements_file_path: "Runner/RunnerRelease.entitlements",
+      sdk: "iphoneos",
+    )
+
+    update_project_provisioning(
+      profile: ENV["sigh_%{bundleId}_appstore_profile-path" % {bundleId: bundleId}],
+      build_configuration: "Release-%{flavor}" % {flavor: flavor},
+      code_signing_identity: "iPhone Distribution",
+    )
+
+    output_directory = "../build/ios/ipa"
+    if options[:output_directory] != nil
+      output_directory = options[:output_directory]
+    end
+    
+    ipa_name = options[:ipa_name] || "Runner-%{flavor}" % {flavor: flavor}
+    
+    output_name = "%{ipa_name}.ipa" % {ipa_name: ipa_name}
+    if options[:output_name] != nil
+      output_name = options[:output_name]
+    end
+
+    provisioningProfiles = {}
+    provisioningProfiles = { bundleId => ENV["sigh_%{bundleId}_appstore_profile-name" % {bundleId: bundleId}] }
+
+    build_app(
+      scheme: flavor,
+      configuration: "Release-" + flavor,
+      xcargs: "-allowProvisioningUpdates",
+      export_options: {
+        signingStyle: "manual",
+        method: "appstore",
+        provisioningProfiles: provisioningProfiles
+      },
+      output_directory: output_directory,
+      output_name: output_name
+    )
+  end
+end
