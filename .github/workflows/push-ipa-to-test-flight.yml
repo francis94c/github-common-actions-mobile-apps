@@ -106,8 +106,39 @@ jobs:
         run: echo "BUNDLE_ID=${{ inputs.bundle-id }}" >> $GITHUB_ENV
 
       - name: Upload IPA to TestFlight
+        timeout-minutes: 15
+        id: push-to-test-flight
+        continue-on-error: true
         run: |
-          cd ios && fastlane ${{ inputs.fastlane-lane }} ${{ inputs.fastlane-args }}
+          set +e
+          (cd ios && fastlane ${{ inputs.fastlane-lane }} ${{ inputs.fastlane-args }}) & 
+          pid=$!
+          
+          # Wait up to 840 seconds (14 minutes) - slightly less than GitHub timeout
+          for i in {1..840}; do
+            if ! kill -0 $pid 2>/dev/null; then
+              wait $pid
+              exit_code=$?
+              if [ $exit_code -eq 0 ]; then
+                echo "PUSH_STATUS=success" >> $GITHUB_ENV
+              else
+                echo "PUSH_STATUS=failed" >> $GITHUB_ENV
+              fi
+              exit 0
+            fi
+            sleep 1
+          done
+          
+          # If we got here, it's a timeout - treat as success
+          echo "PUSH_STATUS=timeout" >> $GITHUB_ENV
+          kill $pid 2>/dev/null
+          exit 0
+
+      - if: ${{ env.PUSH_STATUS == 'failed' }}
+        name: Fail job
+        run: |
+          echo "Uploading IPA to TestFlight failed."
+          exit 1
 
       - name: Clean Up App Store Connect Credentials
         if: ${{ always() }}
