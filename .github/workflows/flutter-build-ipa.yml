@@ -43,6 +43,10 @@ on:
         description: Pre-build script
         type: string
         required: false
+      gen-l10n:
+        description: Generate Localization Files
+        type: boolean
+        default: true
   workflow_call:
     inputs:
       version-code:
@@ -85,6 +89,10 @@ on:
         description: Pre-build script
         type: string
         required: false
+      gen-l10n:
+        description: Generate Localization Files
+        type: boolean
+        default: true
     secrets:
       APP_ENV:
         description: App Environment
@@ -148,6 +156,10 @@ jobs:
 
       - name: Run Code Generators
         run: dart run build_runner build --delete-conflicting-outputs
+
+      - if: ${{ inputs.gen-l10n }}
+        name: Generate localization files
+        run: flutter gen-l10n
 
       - name: Prepare ENV File
         run: echo "${{ secrets.APP_ENV }}" | base64 --decode > .env

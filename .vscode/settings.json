@@ -10,6 +10,7 @@
         "flutterfire",
         "gnubin",
         "hostedtoolcache",
+        "iphoneos",
         "Jonin",
         "juliangruber",
         "libexec",
@@ -20,8 +21,10 @@
         "pozetroninc",
         "pubspec",
         "robinraju",
+        "testflight",
         "TOOLSDIRECTORY",
         "whatsnew",
-        "wzieba"
+        "wzieba",
+        "xcargs"
     ]
 }
