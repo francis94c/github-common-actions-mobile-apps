@@ -39,6 +39,10 @@ on:
         description: Generate Localization Files
         type: boolean
         default: true
+      config:
+        description: JSON string for additional configuration.
+        required: false
+        type: string
   workflow_call:
     inputs:
       flavor:
@@ -76,6 +80,10 @@ on:
         description: Generate Localization Files
         type: boolean
         default: true
+      config:
+        description: JSON string for additional configuration.
+        required: false
+        type: string
     secrets:
       KEYSTORE_JKS:
         description: Keystore JKS
@@ -95,6 +103,9 @@ on:
       DART_DEFINE_FILE:
         description: Dart Define File
         required: false
+      GEMINI_API_KEY:
+        description: Gemini API Key
+        required: false
 
 jobs:
   build:
@@ -102,6 +113,21 @@ jobs:
     environment: ${{ inputs.environment }}
     steps:
       - uses: actions/checkout@v1
+
+      - if: ${{ inputs.config != '' }}
+        name: Parse config
+        run: |
+          echo '${{ inputs.config }}' | jq .
+
+          CONFIG='${{ inputs.config }}'
+
+          L10N_SOURCE_FILE=$(echo "$CONFIG" | jq -r '.l10n_source_file')
+          L10N_TARGET_FILES=$(echo "$CONFIG" | jq -r '.l10n_target_files')
+          L10N_LANGUAGE_CODES=$(echo "$CONFIG" | jq -r '.l10n_language_codes')
+
+          echo "L10N_SOURCE_FILE=$L10N_SOURCE_FILE" >> $GITHUB_ENV
+          echo "L10N_TARGET_FILES=$L10N_TARGET_FILES" >> $GITHUB_ENV
+          echo "L10N_LANGUAGE_CODES=$L10N_LANGUAGE_CODES" >> $GITHUB_ENV
 
       - name: Free up disk space
         run: |
@@ -133,6 +159,16 @@ jobs:
 
       - name: Run Code Generators
         run: flutter pub run build_runner build --delete-conflicting-outputs
+
+      - if: ${{ env.L10N_SOURCE_FILE != '' && env.L10N_TARGET_FILES != '' && env.L10N_LANGUAGE_CODES != '' && inputs.gen-l10n }}
+        name: Generate ARB files
+        uses: francis94c/flutter-localization-action@v1
+        with:
+          source_file: ${{ env.L10N_SOURCE_FILE }}
+          target_file: ${{ env.L10N_TARGET_FILES }}
+          target_lang_code: ${{ env.L10N_LANGUAGE_CODES }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          parallel: true
 
       - if: ${{ inputs.gen-l10n }}
         name: Generate localization files

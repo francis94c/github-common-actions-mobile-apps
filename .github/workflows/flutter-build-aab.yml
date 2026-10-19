@@ -128,6 +128,7 @@ jobs:
           echo "L10N_SOURCE_FILE=$L10N_SOURCE_FILE" >> $GITHUB_ENV
           echo "L10N_TARGET_FILES=$L10N_TARGET_FILES" >> $GITHUB_ENV
           echo "L10N_LANGUAGE_CODES=$L10N_LANGUAGE_CODES" >> $GITHUB_ENV
+          
       - name: Free up disk space
         run: |
           sudo rm -rf /usr/share/dotnet
