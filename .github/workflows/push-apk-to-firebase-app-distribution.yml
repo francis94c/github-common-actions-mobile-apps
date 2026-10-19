@@ -1,0 +1,117 @@
+name: push-apk-to-firebase-app-distribution
+
+on:
+  workflow_call:
+    inputs:
+      apk-artifact-name:
+        description: AAB Artifact Name.
+        required: true
+        type: string
+      version-code:
+        description: Version code. e.g. 1.0.3+7
+        required: false
+        type: string
+      environment:
+        description: Environment
+        type: string
+      flavor:
+        description: Flavor. e.g. dev, prod
+        required: false
+        type: string
+      tester-groups:
+        description: Comma separated firebase tester groups.
+        type: string
+        required: false
+    secrets:
+      FIREBASE_APP_ID:
+        description: Firebase App ID
+        required: true
+      FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT:
+        description: Firebase Service Account Key Content
+        required: true
+      SLACK_WEBHOOK_URL:
+        description: Slack Webhook URL
+        required: true
+
+jobs:
+  push-to-firebase-app-distribution:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v1
+
+      - uses: actions/download-artifact@v4
+        if: "${{ inputs.flavor == '' }}"
+        with:
+          name: ${{ inputs.apk-artifact-name }}
+
+      - uses: actions/download-artifact@v4
+        if: "${{ inputs.flavor != '' }}"
+        with:
+          name: ${{ inputs.apk-artifact-name }}-${{ inputs.flavor }}
+
+      - name: 'Check Release Notes Existence'
+        id: release_notes_exists
+        uses: andstor/file-existence-action@v2
+        with:
+          files: './RELEASE_NOTES.txt'
+          fail: false
+
+      - name: Install Firebase CLI
+        run: curl -sL https://firebase.tools | bash
+
+      - name: Save Service Account File
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT }}
+        run: |
+          echo "$FIREBASE_SERVICE_ACCOUNT" > firebase-service-account.json
+
+      - name: Set up Firebase authentication
+        run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/firebase-service-account.json" >> $GITHUB_ENV
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+        name: Push AAB to Firebase App Distribution 
+        run: |
+          firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.apk \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups ${{ inputs.tester-groups }} \
+            --release-notes-file ./RELEASE_NOTES.txt
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+        name: Push AAB to Firebase App Distribution 
+        run: |
+          firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.apk \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups ${{ inputs.tester-groups }}
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+        name: Read Release Notes
+        id: read-file
+        uses: juliangruber/read-file-action@v1.1.6
+        with:
+          path: ./RELEASE_NOTES.txt
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+        name: Slack Notify
+        uses: rtCamp/action-slack-notify@v2.2.0
+        env:
+          SLACK_MESSAGE: "AAB Build for `${{ inputs.apk-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}\nRelease Notes: ```${{ steps.read-file.outputs.content }}```"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+        name: Slack Notify
+        uses: rtCamp/action-slack-notify@v2.2.0
+        env:
+          SLACK_MESSAGE: "AAB Build for `${{ inputs.apk-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}"
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+      - if: ${{ always() }}
+        name: Remove Service Account File
+        run: rm firebase-service-account.json
+
+      - if: ${{ failure() }}
+        name: The job has failed
+        uses: rtCamp/action-slack-notify@v2.2.0
+        env:
+          SLACK_MESSAGE: 'AAB push to Firebase failed :x: for `${{ github.event.repository.name }}` :android:.'
+          SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
