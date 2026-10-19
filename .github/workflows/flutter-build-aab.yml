@@ -138,7 +138,7 @@ jobs:
           df -H
 
       - name: Setup Java
-        uses: actions/setup-java@v1
+        uses: actions/setup-java@v6
         with:
           java-version: ${{ inputs.java-version }}
 
