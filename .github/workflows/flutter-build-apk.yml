@@ -155,7 +155,7 @@ jobs:
         run: rm -rf ~/.gradle/caches/
 
       - name: Install Dependencies
-        run: flutter pub upgrade && flutter pub get
+        run: flutter pub get
 
       - name: Run Code Generators
         run: flutter pub run build_runner build --delete-conflicting-outputs
