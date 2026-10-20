@@ -215,12 +215,12 @@ jobs:
             let string = '${{ inputs.flavor }}'
             return string.charAt(0).toUpperCase() + string.slice(1)
 
-      - name: Zip Merged Native Libs Symbols
+      - name: Zip Merged Native Libs Symbols (Flavored)
         if: ${{ inputs.flavor != '' }}
         run: |
           cd build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib && zip -r symbols.zip *
 
-      - name: Zip Merged Native Libs Symbols
+      - name: Zip Merged Native Libs Symbols (Normal)
         if: ${{ inputs.flavor == '' }}
         run: |
           cd build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib && zip -r symbols.zip *
