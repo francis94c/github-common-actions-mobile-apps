@@ -77,7 +77,7 @@ jobs:
             --groups ${{ inputs.tester-groups }} \
             --release-notes-file ./RELEASE_NOTES.txt
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' && inputs.flavor != '' }}"
         name: Push APK to Firebase App Distribution (Flavored without Release Notes)
         run: |
           firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.apk \
@@ -92,7 +92,7 @@ jobs:
             --groups ${{ inputs.tester-groups }} \
             --release-notes-file ./RELEASE_NOTES.txt
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' && inputs.flavor == '' }}"
         name: Push APK to Firebase App Distribution (Normal without Release Notes)
         run: |
           firebase appdistribution:distribute ./app-release.apk \
