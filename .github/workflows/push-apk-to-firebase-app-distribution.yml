@@ -70,7 +70,7 @@ jobs:
         run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/firebase-service-account.json" >> $GITHUB_ENV
 
       - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
-        name: Push AAB to Firebase App Distribution 
+        name: Push APK to Firebase App Distribution (Flavored with Release Notes)
         run: |
           firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.apk \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
@@ -78,9 +78,24 @@ jobs:
             --release-notes-file ./RELEASE_NOTES.txt
 
       - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
-        name: Push AAB to Firebase App Distribution 
+        name: Push APK to Firebase App Distribution (Flavored without Release Notes)
         run: |
           firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.apk \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups ${{ inputs.tester-groups }}
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+        name: Push APK to Firebase App Distribution (Normal with Release Notes)
+        run: |
+          firebase appdistribution:distribute ./app-release.apk \
+            --app "${{ secrets.FIREBASE_APP_ID }}" \
+            --groups ${{ inputs.tester-groups }} \
+            --release-notes-file ./RELEASE_NOTES.txt
+
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
+        name: Push APK to Firebase App Distribution (Normal without Release Notes)
+        run: |
+          firebase appdistribution:distribute ./app-release.apk \
             --app "${{ secrets.FIREBASE_APP_ID }}" \
             --groups ${{ inputs.tester-groups }}
 
@@ -95,14 +110,14 @@ jobs:
         name: Slack Notify
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
-          SLACK_MESSAGE: "AAB Build for `${{ inputs.apk-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}\nRelease Notes: ```${{ steps.read-file.outputs.content }}```"
+          SLACK_MESSAGE: "APK Build for `${{ inputs.apk-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}\nRelease Notes: ```${{ steps.read-file.outputs.content }}```"
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - if: "${{ steps.release_notes_exists.outputs.files_exists == 'false' }}"
         name: Slack Notify
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
-          SLACK_MESSAGE: "AAB Build for `${{ inputs.apk-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}"
+          SLACK_MESSAGE: "APK Build for `${{ inputs.apk-artifact-name }}` :android: for `${{ inputs.environment }}` :white_check_mark: successful.\nVersion: ${{ inputs.version-code }}"
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
 
       - if: ${{ always() }}
@@ -113,5 +128,5 @@ jobs:
         name: The job has failed
         uses: rtCamp/action-slack-notify@v2.2.0
         env:
-          SLACK_MESSAGE: 'AAB push to Firebase failed :x: for `${{ github.event.repository.name }}` :android:.'
+          SLACK_MESSAGE: 'APK push to Firebase failed :x: for `${{ github.event.repository.name }}` :android:.'
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK_URL }}
