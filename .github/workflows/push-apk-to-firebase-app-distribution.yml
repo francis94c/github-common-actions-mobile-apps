@@ -69,7 +69,7 @@ jobs:
       - name: Set up Firebase authentication
         run: echo "GOOGLE_APPLICATION_CREDENTIALS=$(pwd)/firebase-service-account.json" >> $GITHUB_ENV
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' && inputs.flavor != '' }}"
         name: Push APK to Firebase App Distribution (Flavored with Release Notes)
         run: |
           firebase appdistribution:distribute ./app-${{ inputs.flavor }}-release.apk \
@@ -84,7 +84,7 @@ jobs:
             --app "${{ secrets.FIREBASE_APP_ID }}" \
             --groups ${{ inputs.tester-groups }}
 
-      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' }}"
+      - if: "${{ steps.release_notes_exists.outputs.files_exists == 'true' && inputs.flavor == '' }}"
         name: Push APK to Firebase App Distribution (Normal with Release Notes)
         run: |
           firebase appdistribution:distribute ./app-release.apk \
