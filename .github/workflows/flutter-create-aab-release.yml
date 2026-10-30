@@ -82,7 +82,8 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Asset - AAB
+      - name: Upload Release Asset - AAB (Flavored)
+        if: ${{ inputs.flavor != '' }}
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_ENV_TOKEN }}
@@ -90,6 +91,17 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ${{ inputs.aab-artifact-name }}-${{ inputs.flavor }}/app-${{ inputs.flavor }}-release.aab
           asset_name: ${{ inputs.aab-artifact-name }}${{ format('-{0}{1}', inputs.flavor, inputs.flavor != '' && '-' || '' ) }}v${{ inputs.version-code }}.aab
+          asset_content_type: application/vnd.android.package-archive
+
+      - name: Upload Release Asset - AAB (Normal)
+        if: ${{ inputs.flavor == '' }}
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_ENV_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ${{ inputs.aab-artifact-name }}/app-release.aab
+          asset_name: ${{ inputs.aab-artifact-name }}-v${{ inputs.version-code }}.aab
           asset_content_type: application/vnd.android.package-archive
 
       - name: Upload Release Asset - Merged Native Debug Symbols
