@@ -43,7 +43,7 @@ jobs:
           parallel: ${{ inputs.parallel-processing }}
 
       - name: Upload ARB files
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: l10n-arb-files
           path: lib/l10n/*.arb
