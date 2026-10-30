@@ -4,6 +4,7 @@
     "andstor",
     "appdistribution",
     "APPSTORE",
+    "COCOAPODS",
     "codesign",
     "deintegrate",
     "DSYMs",

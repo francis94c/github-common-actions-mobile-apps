@@ -1,0 +1,45 @@
+name: flutter-l10n-translate
+
+on:
+  workflow_call:
+    inputs:
+      l10n_source_file:
+        required: true
+        type: string
+      l10n_target_files:
+        required: true
+        type: string
+      l10n_language_codes:
+        required: true
+        type: string
+      parallel-processing:
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  generate-l10n:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.7.0'
+
+      - name: Generate ARB files
+        uses: francis94c/flutter-localization-action@v1
+        with:
+          source_file: ${{ inputs.l10n_source_file }}
+          target_file: ${{ inputs.l10n_target_files }}
+          target_lang_code: ${{ inputs.l10n_language_codes }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          parallel: ${{ inputs.parallel-processing }}
+
+      - name: Upload ARB files
+        uses: actions/upload-artifact@v3
+        with:
+          name: l10n-arb-files
+          path: lib/l10n/*.arb

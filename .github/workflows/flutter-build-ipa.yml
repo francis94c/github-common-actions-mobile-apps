@@ -128,10 +128,12 @@ jobs:
           L10N_SOURCE_FILE=$(echo "$CONFIG" | jq -r '.l10n_source_file')
           L10N_TARGET_FILES=$(echo "$CONFIG" | jq -r '.l10n_target_files')
           L10N_LANGUAGE_CODES=$(echo "$CONFIG" | jq -r '.l10n_language_codes')
+          COCOAPODS=$(echo "$CONFIG" | jq -r '.cocoapods')
 
           echo "L10N_SOURCE_FILE=$L10N_SOURCE_FILE" >> $GITHUB_ENV
           echo "L10N_TARGET_FILES=$L10N_TARGET_FILES" >> $GITHUB_ENV
           echo "L10N_LANGUAGE_CODES=$L10N_LANGUAGE_CODES" >> $GITHUB_ENV
+          echo "COCOAPODS=$COCOAPODS" >> $GITHUB_ENV
 
       - name: Setup Latest Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -164,17 +166,17 @@ jobs:
       - name: Install Dependencies
         run: flutter pub upgrade && flutter pub get
 
-      - name: Delete Podspec Lock
+      - if: ${{ env.COCOAPODS == 'true' }}
+        name: Delete Podspec Lock
         run: rm -rf ios/Podfile.lock
 
-      - name: Pod Install
-        run: cd ios && pod deintegrate && pod install
-
-      - name: Delete Podspec Lock
+      - if: ${{ env.COCOAPODS == 'true' }}
+        name: Delete Podspec Lock
         run: rm -rf ios/Podfile.lock
 
-      - name: Pod Install
-        run: cd ios && pod deintegrate && pod install
+      - if: ${{ env.COCOAPODS == 'true' }}
+        name: Pod Install
+        run: cd ios && pod install
 
       - name: Run Code Generators
         run: dart run build_runner build --delete-conflicting-outputs
