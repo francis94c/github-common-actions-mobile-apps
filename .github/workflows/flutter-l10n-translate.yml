@@ -16,6 +16,10 @@ on:
         required: false
         default: true
         type: boolean
+    secrets:
+      GEMINI_API_KEY:
+        required: true
+        description: GEMINI API Key for translation action
 
 jobs:
   generate-l10n:
