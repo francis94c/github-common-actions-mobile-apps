@@ -166,6 +166,19 @@ jobs:
       - name: Install Dependencies
         run: flutter pub upgrade && flutter pub get
 
+      - if: ${{ inputs.gen-l10n }}
+        name: Download ARB Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: l10n-arb-files
+          path: lib/l10n
+
+      - name: LS lib/l10n
+        run: ls -la lib/l10n
+      - if: ${{ inputs.gen-l10n }}
+        name: Generate localization files
+        run: flutter gen-l10n
+
       - if: ${{ env.COCOAPODS == 'true' }}
         name: Delete Podspec Lock
         run: rm -rf ios/Podfile.lock
@@ -180,29 +193,6 @@ jobs:
 
       - name: Run Code Generators
         run: dart run build_runner build --delete-conflicting-outputs
-
-      # - if: ${{ env.L10N_SOURCE_FILE != '' && env.L10N_TARGET_FILES != '' && env.L10N_LANGUAGE_CODES != '' && inputs.gen-l10n }}
-      #   name: Generate ARB files
-      #   uses: francis94c/flutter-localization-action@v1
-      #   with:
-      #     source_file: ${{ env.L10N_SOURCE_FILE }}
-      #     target_file: ${{ env.L10N_TARGET_FILES }}
-      #     target_lang_code: ${{ env.L10N_LANGUAGE_CODES }}
-      #     gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
-      #     parallel: true
-
-      - if: ${{ inputs.gen-l10n }}
-        name: Download ARB Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: l10n-arb-files
-          path: lib/l10n
-
-      - name: LS lib/l10n
-        run: ls -la lib/l10n
-      - if: ${{ inputs.gen-l10n }}
-        name: Generate localization files
-        run: flutter gen-l10n
 
       - name: Prepare ENV File
         run: echo "${{ secrets.APP_ENV }}" | base64 --decode > .env
