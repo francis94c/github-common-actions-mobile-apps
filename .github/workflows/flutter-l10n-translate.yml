@@ -33,7 +33,15 @@ jobs:
         with:
           flutter-version: '3.7.0'
 
+      - name: Cache ARB files
+        id: l10n-cache
+        uses: actions/cache@v4
+        with:
+          path: lib/l10n
+          key: l10n-${{ hashFiles(inputs.l10n_source_file) }}-${{ inputs.l10n_target_files }}-${{ inputs.l10n_language_codes }}
+
       - name: Generate ARB files
+        if: steps.l10n-cache.outputs.cache-hit != 'true'
         uses: francis94c/flutter-localization-action@v1
         with:
           source_file: ${{ inputs.l10n_source_file }}

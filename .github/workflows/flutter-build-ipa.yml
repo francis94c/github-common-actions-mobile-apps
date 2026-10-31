@@ -192,6 +192,13 @@ jobs:
           parallel: true
 
       - if: ${{ inputs.gen-l10n }}
+        name: Download ARB Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: l10n-arb-files
+          path: lib/l10n
+
+      - if: ${{ inputs.gen-l10n }}
         name: Generate localization files
         run: flutter gen-l10n
 
