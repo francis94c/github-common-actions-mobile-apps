@@ -255,7 +255,20 @@ jobs:
 
       - name: Upload DSYMs to Firebase
         run: |
-          ios/Pods/FirebaseCrashlytics/upload-symbols -gsp ${{ github.workspace }}/ios/Runner${{ format('{0}{1}', inputs.flavor != '' && '/' || '', inputs.flavor ) }}/GoogleService-Info.plist -p ios "${{ github.workspace }}/build/ios/ipa/${{ inputs.app-name }}.app.dSYM.zip"
+          # Locate upload-symbols: prefer CocoaPods path, fall back to SPM checkout in DerivedData
+          if [ -f "ios/Pods/FirebaseCrashlytics/upload-symbols" ]; then
+            UPLOAD_SYMBOLS="ios/Pods/FirebaseCrashlytics/upload-symbols"
+          else
+            UPLOAD_SYMBOLS=$(find ~/Library/Developer/Xcode/DerivedData -path "*/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols" 2>/dev/null | head -1)
+          fi
+          if [ -z "$UPLOAD_SYMBOLS" ] || [ ! -f "$UPLOAD_SYMBOLS" ]; then
+            echo "warning: upload-symbols not found, skipping dSYM upload."
+            exit 0
+          fi
+          "$UPLOAD_SYMBOLS" \
+            -gsp ${{ github.workspace }}/ios/Runner${{ format('{0}{1}', inputs.flavor != '' && '/' || '', inputs.flavor ) }}/GoogleService-Info.plist \
+            -p ios \
+            ${{ github.workspace }}/build/ios/ipa/${{ inputs.app-name }}.app.dSYM.zip
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
