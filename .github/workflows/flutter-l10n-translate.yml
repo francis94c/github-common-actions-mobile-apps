@@ -33,12 +33,19 @@ jobs:
         with:
           flutter-version: '3.7.0'
 
+      - name: Compute l10n cache key
+        id: l10n-key
+        env:
+          TARGET_FILES: ${{ inputs.l10n_target_files }}
+          LANG_CODES: ${{ inputs.l10n_language_codes }}
+        run: echo "hash=$(printf '%s|%s' "$TARGET_FILES" "$LANG_CODES" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
       - name: Cache ARB files
         id: l10n-cache
         uses: actions/cache@v4
         with:
           path: lib/l10n
-          key: l10n-${{ hashFiles(inputs.l10n_source_file) }}-${{ inputs.l10n_target_files }}-${{ inputs.l10n_language_codes }}
+          key: l10n-${{ hashFiles(inputs.l10n_source_file) }}-${{ steps.l10n-key.outputs.hash }}
 
       - name: Generate ARB files
         if: steps.l10n-cache.outputs.cache-hit != 'true'
