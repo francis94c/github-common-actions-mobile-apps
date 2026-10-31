@@ -244,6 +244,8 @@ jobs:
         run: cd ios && fastlane export_and_sign flavor:${{ inputs.flavor }} ipa_name:"${{ inputs.app-name }}"
 
       - name: Upload DSYMs to Firebase
+        env:
+          FLAVOR: ${{ inputs.flavor }}
         run: |
           # Locate upload-symbols: prefer CocoaPods path, fall back to SPM checkout in DerivedData
           if [ -f "ios/Pods/FirebaseCrashlytics/upload-symbols" ]; then
@@ -255,10 +257,28 @@ jobs:
             echo "warning: upload-symbols not found, skipping dSYM upload."
             exit 0
           fi
-          "$UPLOAD_SYMBOLS" \
-            -gsp ${{ github.workspace }}/ios/Runner${{ format('{0}{1}', inputs.flavor != '' && '/' || '', inputs.flavor ) }}/GoogleService-Info.plist \
-            -p ios \
-            ${{ github.workspace }}/build/ios/ipa/${{ inputs.app-name }}.app.dSYM.zip
+          # Fastlane names the dSYM zip after output_name (which may include ".ipa"), so search for it
+          DSYM_PATH=$(find "${{ github.workspace }}/build/ios/ipa" -maxdepth 1 -name "*.dSYM.zip" 2>/dev/null | head -1)
+          if [ -z "$DSYM_PATH" ]; then
+            # Fall back to the dSYM folder inside the xcarchive
+            DSYM_PATH=$(find "${{ github.workspace }}/build/ios" ~/Library/Developer/Xcode/Archives -type d -name "*.dSYM" -path "*dSYMs*" 2>/dev/null | head -1)
+          fi
+          if [ -z "$DSYM_PATH" ]; then
+            echo "warning: no dSYM found, listing build/ios/ipa:"
+            ls -la "${{ github.workspace }}/build/ios/ipa" || true
+            exit 0
+          fi
+          # Flavored builds keep their plist in ios/Runner/<flavor>/; fall back to the default location
+          GSP="${{ github.workspace }}/ios/Runner/GoogleService-Info.plist"
+          if [ -n "$FLAVOR" ] && [ -f "${{ github.workspace }}/ios/Runner/$FLAVOR/GoogleService-Info.plist" ]; then
+            GSP="${{ github.workspace }}/ios/Runner/$FLAVOR/GoogleService-Info.plist"
+          fi
+          if [ ! -f "$GSP" ]; then
+            echo "warning: GoogleService-Info.plist not found at $GSP, skipping dSYM upload."
+            exit 0
+          fi
+          echo "Uploading dSYM: $DSYM_PATH (flavor: ${FLAVOR:-none}, gsp: $GSP)"
+          "$UPLOAD_SYMBOLS" -gsp "$GSP" -p ios "$DSYM_PATH"
 
       - name: Upload IPA Artifact
         uses: actions/upload-artifact@v4
