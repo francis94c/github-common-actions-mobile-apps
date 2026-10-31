@@ -1,0 +1,94 @@
+name: push-to-firebase-hosting
+
+on:
+  workflow_call:
+    inputs:
+      project-id:
+        description: Firebase project ID.
+        required: true
+        type: string
+      site-directory:
+        description: Directory containing the site to deploy (the hosting "public" dir), relative to the repo root or artifact root.
+        required: false
+        type: string
+        default: build/web
+      site-artifact-name:
+        description: Optional artifact containing the built site. If empty, the repository is checked out and site-directory is used, else the artifact is downloaded.
+        required: false
+        type: string
+      hosting-target:
+        description: Optional hosting target or site ID. Deploys all hosting if empty.
+        required: false
+        type: string
+      channel-id:
+        description: Preview channel ID. Deploys to the live channel if empty.
+        required: false
+        type: string
+        default: live
+      environment:
+        description: Environment
+        required: false
+        type: string
+    secrets:
+      FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT:
+        description: Firebase Service Account Key Content
+        required: true
+
+jobs:
+  push-to-firebase-hosting:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - if: "${{ inputs.site-artifact-name == '' }}"
+        uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        if: "${{ inputs.site-artifact-name != '' }}"
+        with:
+          name: ${{ inputs.site-artifact-name }}
+          path: ${{ inputs.site-directory }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools@15.34.1
+
+      - name: Save Service Account File
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON_CONTENT }}
+        run: |
+          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-service-account.json"
+          echo "GOOGLE_APPLICATION_CREDENTIALS=$RUNNER_TEMP/firebase-service-account.json" >> "$GITHUB_ENV"
+
+      - name: Write temporary firebase.json
+        env:
+          SITE_DIR: ${{ inputs.site-directory }}
+          TARGET: ${{ inputs.hosting-target }}
+        run: |
+          node -e '
+            const h = { public: process.env.SITE_DIR, ignore: ["firebase.json", "**/.*", "**/node_modules/**"] };
+            if (process.env.TARGET) h.site = process.env.TARGET;
+            require("fs").writeFileSync(process.env.RUNNER_TEMP + "/firebase.hosting.json", JSON.stringify({ hosting: h }));
+          '
+
+      - name: Deploy to live channel
+        if: "${{ inputs.channel-id == 'live' || inputs.channel-id == '' }}"
+        run: |
+          firebase deploy --only hosting \
+            --project "${{ inputs.project-id }}" \
+            --config "$RUNNER_TEMP/firebase.hosting.json" \
+            --non-interactive
+
+      - name: Deploy to preview channel
+        if: "${{ inputs.channel-id != 'live' && inputs.channel-id != '' }}"
+        run: |
+          firebase hosting:channel:deploy "${{ inputs.channel-id }}" \
+            --project "${{ inputs.project-id }}" \
+            --config "$RUNNER_TEMP/firebase.hosting.json" \
+            --non-interactive
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -f "$RUNNER_TEMP/firebase-service-account.json"
