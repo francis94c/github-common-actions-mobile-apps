@@ -214,12 +214,12 @@ jobs:
             let string = '${{ inputs.flavor }}'
             return string.charAt(0).toUpperCase() + string.slice(1)
 
-      - name: Zip Merged Native Libs Symbols
+      - name: Zip Merged Native Libs Symbols (Flavored)
         if: ${{ inputs.flavor != '' }}
         run: |
           cd build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib && zip -r symbols.zip *
 
-      - name: Zip Merged Native Libs Symbols
+      - name: Zip Merged Native Libs Symbols (Normal)
         if: ${{ inputs.flavor == '' }}
         run: |
           cd build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib && zip -r symbols.zip *
@@ -242,19 +242,19 @@ jobs:
           name: ${{ inputs.apk-artifact-name }}-${{ inputs.flavor }}
           path: ./build/app/outputs/flutter-apk/app-${{ inputs.flavor }}-release.apk
 
-      - name: Upload Merged Native Symbols Artifact
+      - name: Upload Merged Native Symbols Artifact (Flavored)
         if: ${{ inputs.flavor != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
           path: ./build/app/intermediates/merged_native_libs/${{ inputs.flavor }}Release/merge${{ steps.ucfirst-flavor.outputs.result }}ReleaseNativeLibs/out/lib/symbols.zip
 
-      - name: Upload Merged Native Symbols Artifact
+      - name: Upload Merged Native Symbols Artifact (Normal)
         if: ${{ inputs.flavor == '' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
-          path: ./build/app/intermediates/merged_native_libs/release/out/lib/symbols.zip
+          path: ./build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib/symbols.zip
 
       - name: Upload Flutter Build Symbols Artifact
         uses: actions/upload-artifact@v4
