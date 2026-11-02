@@ -243,7 +243,7 @@ jobs:
           name: ${{ inputs.aab-artifact-name }}-${{ inputs.flavor }}
           path: ./build/app/outputs/bundle/${{ inputs.flavor }}Release/app-${{ inputs.flavor }}-release.aab
 
-      - name: Upload Merged Native Symbols Artifact
+      - name: Upload Merged Native Symbols Artifact (Flavored)
         if: ${{ inputs.flavor != '' }}
         uses: actions/upload-artifact@v4
         with:
@@ -255,7 +255,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.merged-native-libs-symbols-artifact-name }}
-          path: ./build/app/intermediates/merged_native_libs/release/out/lib/symbols.zip
+          path: ./build/app/intermediates/merged_native_libs/release/mergeReleaseNativeLibs/out/lib/symbols.zip
 
       - name: Upload Flutter Build Symbols Artifact
         uses: actions/upload-artifact@v4

@@ -1,0 +1,64 @@
+name: flutter-l10n-translate
+
+on:
+  workflow_call:
+    inputs:
+      l10n_source_file:
+        required: true
+        type: string
+      l10n_target_files:
+        required: true
+        type: string
+      l10n_language_codes:
+        required: true
+        type: string
+      parallel-processing:
+        required: false
+        default: true
+        type: boolean
+    secrets:
+      GEMINI_API_KEY:
+        required: true
+        description: GEMINI API Key for translation action
+
+jobs:
+  generate-l10n:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.7.0'
+
+      - name: Compute l10n cache key
+        id: l10n-key
+        env:
+          TARGET_FILES: ${{ inputs.l10n_target_files }}
+          LANG_CODES: ${{ inputs.l10n_language_codes }}
+        run: echo "hash=$(printf '%s|%s' "$TARGET_FILES" "$LANG_CODES" | sha256sum | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Cache ARB files
+        id: l10n-cache
+        uses: actions/cache@v4
+        with:
+          path: lib/l10n
+          key: l10n-${{ hashFiles(inputs.l10n_source_file) }}-${{ steps.l10n-key.outputs.hash }}
+
+      - name: Generate ARB files
+        if: steps.l10n-cache.outputs.cache-hit != 'true'
+        uses: francis94c/flutter-localization-action@v1
+        with:
+          source_file: ${{ inputs.l10n_source_file }}
+          target_file: ${{ inputs.l10n_target_files }}
+          target_lang_code: ${{ inputs.l10n_language_codes }}
+          gemini_api_key: ${{ secrets.GEMINI_API_KEY }}
+          parallel: ${{ inputs.parallel-processing }}
+
+      - name: Upload ARB files
+        uses: actions/upload-artifact@v4
+        with:
+          name: l10n-arb-files
+          path: lib/l10n/*.arb
