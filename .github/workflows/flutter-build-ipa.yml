@@ -181,7 +181,7 @@ jobs:
 
       - if: ${{ env.L10N_SOURCE_FILE != '' && env.L10N_TARGET_FILES != '' && env.L10N_LANGUAGE_CODES != '' && inputs.gen-l10n }}
         name: Generate ARB files
-        uses: francis94c/flutter-localization-action@v2
+        uses: francis94c/flutter-localization-action@v1
         with:
           source_file: ${{ env.L10N_SOURCE_FILE }}
           target_file: ${{ env.L10N_TARGET_FILES }}
